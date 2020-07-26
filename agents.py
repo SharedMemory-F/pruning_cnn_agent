@@ -1,75 +1,90 @@
-from keras.layers import Dense, Conv2D, Flatten, MaxPooling2D
-from keras.models import Sequential
-from keras import Input
-from keras.optimizers import Adam
-from keras import Input
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras.layers import Dense, Conv2D, Flatten, MaxPool2D,Input
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import LearningRateScheduler
 import numpy as np
-import os
-import keras
+seed=1013
+def tloss(y_true,y_pred):
+  y_pred=tf.math.abs(y_pred)
 
+  l1=tf.keras.losses.binary_crossentropy(y_true,y_pred)
+  l2=tf.keras.losses.binary_crossentropy((tf.reduce_max(y_true)*tf.ones_like(y_true)-y_true),1-y_pred)
+  return l1+l2
 
-class Agent:
+def scheduler(epoch):
+  if epoch < 10:
+    return 0.001
+  else:
+    return 0.001 * tf.math.exp(0.1 * (10 - epoch))
 
-    def __init__(self, state_size, action_size):
+class agent():
+  def __init__(self,state_shape,action_cnt,lr=1e-3,factor=0.001):
+    super(agent,self).__init__()
+    self.state_shape=state_shape
+    self.action_cnt=action_cnt
+    self.lr=lr
+    self.factor=factor
+    self.states,self.actions,self.rewards=[],[],[]
+    self.model=self._model()
+    self.epoch=0
+    self.lrschedular=LearningRateScheduler(scheduler)
 
-        self.state_size = state_size
-        self.state_dim = state_size[-1]
-        self.action_size = action_size
-        self.discount_factor = 0.99
-        self.learning_rate = 0.01
-        self.states, self.actions, self.rewards = [], [], []
-        self.model = self._build_model()
-        if os.path.exists('pruning_agent.h5'):
-            self.model.load_weights('./saved_model/pruning_agent.h5')
+  def _model(self):
+    '''
+    the model takes the filter matrix Wl=NlxMlxhxw as input
+    and Wl will be arranged to 2D format, Wl=NlxMl
+    if Ml is larger than 16, the alternating cnn with 7x7 kernel will be included
+    other wise the pruning agent consist of two fc layer
+    '''
+    model=Sequential([
+      Conv2D(32,(7,7),activation='relu',data_format="channels_first",padding="same",input_shape=self.state_shape),
+      MaxPool2D(),
+      Conv2D(64,(7,7),activation='relu',data_format="channels_first",padding="same"),
+      MaxPool2D(),
+      Conv2D(64,(7,7),activation='relu',data_format="channels_first",padding="same"),
+      MaxPool2D(),
+      Conv2D(64,(7,7),activation='relu',data_format="channels_first",padding="same"),
+      MaxPool2D(),
+      Flatten(),
+      Dense(32,activation='relu'),
+      Dense(32,activation='relu'),
+      Dense(self.action_cnt,activation='sigmoid')
+    ])
+    model.compile(loss=tloss,optimizer=Adam(learning_rate=self.lr))
+    return model
+  def append_samples(self,reward,action,feature):
+    self.states.append(feature)
+    self.rewards.append(reward)
+    self.actions.append(action)
+  def get_action(self,feature):
+    #binary the output to 0 and 1
+    return self.model.predict(feature)[0]
+  def discount_rewards(self,rewards):
+    #the early rewards will have discounts
+    discounted_rewards=np.zeros_like(rewards)
+    c=0
+    for t in range(len(rewards)):
+      c=c*self.factor+rewards[-t]
+      discounted_rewards[-t]=c
+      print(c,end=" ")
+    discounted_rewards-=np.mean(discounted_rewards)
+    discounted_rewards/=np.std(discounted_rewards)
+    return discounted_rewards
+  def run(self):
+    rewards=self.discount_rewards(self.rewards)
+    episode_len=len(self.states)
+    advantages=np.zeros((episode_len,self.action_cnt))
+    
+    h,w,c=self.state_shape
+    inputs=np.zeros((episode_len,h,w,c))
+    #episode is equal to action_cnt
+    for i in range(episode_len):
+      advantages[i][self.actions[i]]=rewards[i]
+      inputs[i]=self.states[i]
+    lr=self.lr*np.exp(-self.epoch//10)
+    self.model.fit(inputs,advantages,epochs=self.epoch+3,initial_epoch=self.epoch,callbacks=[self.lrschedular])
+    self.epoch+=3
 
-    def _build_model(self):
-        model = Sequential()
-        model.add(Conv2D(32, (7, 7), activation='relu', padding="same", input_shape=self.state_size))
-        model.add(MaxPooling2D(pool_size=(2, 2), padding="same"))
-        model.add(Conv2D(64, (7, 7), padding="same", activation='relu'))
-        model.add(MaxPooling2D(pool_size=(2, 2), padding="same"))
-        model.add(Conv2D(64, (7, 7), padding="same", activation='relu'))
-        model.add(MaxPooling2D(pool_size=(2, 2), padding="same"))
-        model.add(Conv2D(64, (7, 7), padding="same", activation='relu'))
-        model.add(MaxPooling2D(pool_size=(2, 2), padding="same"))
-        model.add(Flatten())
-        model.add(Dense(24, activation='relu'))
-        model.add(Dense(24, activation='relu'))
-        model.add(Dense(self.action_size, activation='sigmoid'))
-        model.compile(loss="categorical_crossentropy", optimizer=Adam(lr=self.learning_rate), metrics=['accuracy'])
-        return model
-
-    def append_sample(self, state, action, reward):
-        self.states.append(state)
-        self.rewards.append(reward)
-        self.actions.append(action)
-
-    def get_action(self, state):
-        state = np.expand_dims(state, axis=0)
-        return self.model.predict(state)
-
-    def discount_rewards(self, rewards):
-        discounted_rewards = np.zeros_like(rewards)
-        running_add = 0
-        for t in reversed(range(0, len(rewards))):
-            running_add = running_add * self.discount_factor + rewards[t]
-            discounted_rewards[t] = running_add
-        return discounted_rewards
-
-    def train_model(self):
-        episode_length = len(self.states)
-        discounted_rewards = self.discount_rewards(self.rewards)
-        discounted_rewards -= np.mean(discounted_rewards)
-        discounted_rewards /= np.std(discounted_rewards)
-        height, width, feature_map = self.state_size
-        update_inputs = np.zeros((episode_length, height, width, feature_map))
-        advantages = np.zeros((episode_length, self.action_size))
-        for i in range(episode_length):
-            update_inputs[i] = self.states[i]
-            advantages[i][self.actions[i]] = discounted_rewards[i]
-        print(update_inputs)
-        print(advantages)
-        self.model.fit(update_inputs, advantages, epochs=10, verbose=1, callbacks=[
-            keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=2, verbose=1)
-        ])
-        self.states, self.actions, self.rewards = [], [], []
+    self.states,self.actions,self.rewards=[],[],[]

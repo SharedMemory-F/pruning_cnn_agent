@@ -1,17 +1,18 @@
 # Pruning CNNs using Reinforcement Learning
 Implementation of the paper [Learning to Prune Filters in Convolutional Neural Networks](https://arxiv.org/pdf/1801.07365.pdf)
 
-## Installation
+## requirements
 
-```
-> git clone https://github.com/saadmanrafat/pruning-cnn-using-rl
-> cd into the directory 
-> pip install -r requirements.txt
-
-```
-
-## Benchmarks
-Todo
+- python  3.8.2               
+- tensorboard 2.2.1     
+- tensorflow 2.2.0rc3 
 
 ## Examples
-Todo
+```
+> git clone https://github.com/SharedMemory-F/pruning_cnn_agent
+> cd into the directory 
+> python main.py
+```
+the block1-conv2 example:
+
+![the block1-conv2 example](test2)
