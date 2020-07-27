@@ -7,12 +7,14 @@ Implementation of the paper [Learning to Prune Filters in Convolutional Neural N
 - tensorboard 2.2.1     
 - tensorflow 2.2.0rc3 
 
-## Examples
+## Quick Start
 ```
 > git clone https://github.com/SharedMemory-F/pruning_cnn_agent
 > cd into the directory 
 > python main.py
 ```
+
+## Examples
 VGG16 block1-block5 pruning cnn example:
 
 ![the block1-conv2 example](./images/test_vgg16.png)
