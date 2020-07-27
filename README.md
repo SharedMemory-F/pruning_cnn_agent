@@ -1,4 +1,4 @@
-# Introduction
+## Introduction
 Implementation of the paper [Learning to Prune Filters in Convolutional Neural Networks](https://arxiv.org/pdf/1801.07365.pdf)
 
 ## Requirements
