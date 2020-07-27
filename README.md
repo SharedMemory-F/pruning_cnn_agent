@@ -15,4 +15,4 @@ Implementation of the paper [Learning to Prune Filters in Convolutional Neural N
 ```
 the block1-conv2 example:
 
-![the block1-conv2 example](test2)
+![the block1-conv2 example](./images/test_vgg16.png)
