@@ -13,6 +13,6 @@ Implementation of the paper [Learning to Prune Filters in Convolutional Neural N
 > cd into the directory 
 > python main.py
 ```
-the block1-conv2 example:
+VGG16 block1-block5 pruning cnn example:
 
 ![the block1-conv2 example](./images/test_vgg16.png)
